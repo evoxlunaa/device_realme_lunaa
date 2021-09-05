@@ -1,0 +1,2 @@
+# Sensor
+/dev/socket/als_correction    u:object_r:als_correction_socket:s0

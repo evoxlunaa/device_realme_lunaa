@@ -16,6 +16,7 @@
 
 #include <android-base/properties.h>
 #include <binder/ProcessState.h>
+#include <gui/LayerState.h>
 #include <gui/SurfaceComposerClient.h>
 #include <gui/SyncScreenCaptureListener.h>
 #include <sysutils/FrameworkCommand.h>
@@ -28,9 +29,11 @@
 #include <unistd.h>
 
 using android::base::GetProperty;
+using android::base::SetProperty;
 using android::gui::ScreenCaptureResults;
 using android::ui::DisplayState;
 using android::ui::PixelFormat;
+using android::ui::Rotation;
 using android::DisplayCaptureArgs;
 using android::GraphicBuffer;
 using android::IBinder;
@@ -40,7 +43,10 @@ using android::sp;
 using android::SurfaceComposerClient;
 using android::SyncScreenCaptureListener;
 
-static Rect screenshot_rect;
+static Rect screenshot_rect_0;
+static Rect screenshot_rect_land_90;
+static Rect screenshot_rect_180;
+static Rect screenshot_rect_land_270;
 
 class TakeScreenshotCommand : public FrameworkCommand {
   public:
@@ -68,14 +74,29 @@ class TakeScreenshotCommand : public FrameworkCommand {
     }
 
     screenshot_t takeScreenshot() {
-        static sp<GraphicBuffer> outBuffer = new GraphicBuffer(
-                screenshot_rect.getWidth(), screenshot_rect.getHeight(),
-                android::PIXEL_FORMAT_RGB_888,
-                GraphicBuffer::USAGE_SW_READ_OFTEN | GraphicBuffer::USAGE_SW_WRITE_OFTEN);
-
         DisplayCaptureArgs captureArgs;
         captureArgs.displayToken = getInternalDisplayToken();
         captureArgs.pixelFormat = PixelFormat::RGBA_8888;
+
+        android::ui::DisplayState state;
+        SurfaceComposerClient::getDisplayState(captureArgs.displayToken, &state);
+        Rect screenshot_rect;
+        switch (state.orientation) {
+             case Rotation::Rotation90:  screenshot_rect = screenshot_rect_land_90;
+                                         break;
+             case Rotation::Rotation180: screenshot_rect = screenshot_rect_180;
+                                         break;
+             case Rotation::Rotation270: screenshot_rect = screenshot_rect_land_270;
+                                         break;
+             default:                    screenshot_rect = screenshot_rect_0;
+                                         break;
+        }
+
+        static sp<GraphicBuffer> outBuffer = new GraphicBuffer(
+        screenshot_rect.getWidth(), screenshot_rect.getHeight(),
+        android::PIXEL_FORMAT_RGB_888,
+        GraphicBuffer::USAGE_SW_READ_OFTEN | GraphicBuffer::USAGE_SW_WRITE_OFTEN);
+
         captureArgs.sourceCrop = screenshot_rect;
         captureArgs.width = screenshot_rect.getWidth();
         captureArgs.height = screenshot_rect.getHeight();
@@ -122,16 +143,25 @@ class AlsCorrectionListener : public FrameworkListener {
 
 int main() {
     int32_t left, top, right, bottom;
+    int32_t ALS_RADIUS = 40;
     std::istringstream is(GetProperty("vendor.sensors.als_correction.grabrect", ""));
 
-    is >> left >> top >> right >> bottom;
+    is >> left >> top;
     if (left == 0) {
         ALOGE("No screenshot grab area config");
         return 0;
     }
 
-    ALOGI("Screenshot grab area: %d %d %d %d", left, right, top, bottom);
-    screenshot_rect = Rect(left, top, right, bottom);
+    //TODO Reimplement rotation calculation
+    screenshot_rect_0 = Rect(left - ALS_RADIUS, top - ALS_RADIUS, left + ALS_RADIUS, top + ALS_RADIUS);
+    screenshot_rect_land_90 = Rect(top - ALS_RADIUS, 1080 - left - ALS_RADIUS, top + ALS_RADIUS, 1080 - left + ALS_RADIUS);
+    screenshot_rect_180 = Rect(1080-left - ALS_RADIUS, 2400-top - ALS_RADIUS, 1080-left + ALS_RADIUS, 2400-top + ALS_RADIUS);
+    screenshot_rect_land_270 = Rect(2400 - (top + ALS_RADIUS),left - ALS_RADIUS, 2400 - (top - ALS_RADIUS), left + ALS_RADIUS);
+
+    ALOGI("Screenshot grab area rot=0: %d %d %d %d", screenshot_rect_0.left, screenshot_rect_0.right, screenshot_rect_0.top, screenshot_rect_0.bottom);
+    ALOGI("Screenshot grab area rot_land=90: %d %d %d %d", screenshot_rect_land_90.left, screenshot_rect_land_90.right, screenshot_rect_land_90.top, screenshot_rect_land_90.bottom);
+    ALOGI("Screenshot grab area rot=180: %d %d %d %d", screenshot_rect_180.left, screenshot_rect_180.right, screenshot_rect_180.top, screenshot_rect_180.bottom);
+    ALOGI("Screenshot grab area rot_land_270: %d %d %d %d", screenshot_rect_land_270.left, screenshot_rect_land_270.right, screenshot_rect_land_270.top, screenshot_rect_land_270.bottom);
 
     auto listener = new AlsCorrectionListener();
     listener->startListener();

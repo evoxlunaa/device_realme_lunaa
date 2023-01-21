@@ -372,7 +372,7 @@
          hysteresis threshold. -->
     <integer name="config_autoBrightnessBrighteningLightDebounce">3000</integer>
     <integer name="config_autoBrightnessDarkeningLightDebounce">3000</integer>
-    
+
     <!-- Slow brightness animation ramp rate in float. -->
     <item name="config_brightnessRampRateSlowFloat" format="float" type="dimen">0.04</item>
 
@@ -483,4 +483,7 @@
         <item>96</item>   <!-- <item>sensorRadius</item> -->
     </integer-array>
 
+    <!-- The maximum range of gamma adjustment possible using the screen
+         auto-brightness adjustment setting. -->
+    <fraction name="config_autoBrightnessAdjustmentMaxGamma">150%</fraction>
 </resources>

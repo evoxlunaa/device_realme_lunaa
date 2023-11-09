@@ -42,8 +42,9 @@ PRODUCT_PACKAGES += \
     android.hardware.secure_element-service.thales \
     android.hardware.secure_element@1.2.vendor \
     com.android.nfc_extras \
-    init.lunaa.rc \
-    Tag
+    SecureElement \
+    NfcNci \
+    init.lunaa.rc
 
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/nfc/libnfc-hal-st.conf:$(TARGET_COPY_OUT_VENDOR)/etc/libnfc-hal-st.conf
